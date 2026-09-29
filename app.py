@@ -66,29 +66,26 @@ def init_db():
     ''')
     conn.commit()
 
-    # 1. Khởi tạo danh sách phòng
+    # Khởi tạo danh sách phòng mẫu
     c.execute("SELECT COUNT(*) FROM rooms")
     if c.fetchone()[0] == 0:
         sample_rooms = [
             ('101', 'Đơn Standard', 500000, 'Trống'),
-            ('102', 'Đơn Standard', 500000, 'Đã đặt'),  # Phòng đang có khách
+            ('102', 'Đơn Standard', 500000, 'Đã đặt'),
             ('201', 'Đôi Deluxe', 800000, 'Trống'),
-            ('202', 'Đôi Deluxe', 800000, 'Đã đặt'),   # Phòng đang có khách
+            ('202', 'Đôi Deluxe', 800000, 'Đã đặt'),
             ('301', 'VIP Suite', 1500000, 'Trống'),
         ]
         c.executemany("INSERT INTO rooms VALUES (?, ?, ?, ?)", sample_rooms)
         conn.commit()
 
-    # 2. Khởi tạo dữ liệu ĐÃ Ở (3 lượt) và ĐANG Ở (2 lượt)
+    # Khởi tạo dữ liệu mẫu 3 phòng ĐÃ Ở và 2 phòng ĐANG Ở
     c.execute("SELECT COUNT(*) FROM bookings")
     if c.fetchone()[0] == 0:
         sample_bookings = [
-            # --- 3 PHÒNG ĐÃ Ở & CHECK-OUT HOÀN TẤT ---
             ('101', 'Nguyễn Văn An', '079201001234', '0903123456', 'an.nguyen@gmail.com', 'Việt Nam', 'Yêu cầu phòng yên tĩnh', '2026-09-20', '2026-09-22', 'Đã trả phòng', 1000000, 30000, 1030000),
             ('201', 'Trần Thị Bích', '079198005678', '0918987654', 'bich.tran@yahoo.com', 'Việt Nam', 'Khách VIP đi công tác', '2026-09-23', '2026-09-26', 'Đã trả phòng', 2400000, 150000, 2550000),
             ('301', 'Michael Smith', 'C987654321', '0933112233', 'm.smith@outlook.com', 'Mỹ', 'Khách hàng thân thiết', '2026-09-26', '2026-09-28', 'Đã trả phòng', 3000000, 200000, 3200000),
-            
-            # --- 2 PHÒNG ĐANG Ở / ĐÃ ĐẶT (Đang lưu trú tại khách sạn) ---
             ('102', 'Lê Hoàng Nam', '079195009988', '0977889900', 'nam.le@gmail.com', 'Việt Nam', 'Gọi báo thức 7h sáng', '2026-09-28', '2026-09-30', 'Đang ở', 0, 0, 0),
             ('202', 'Phạm Minh Khoa', '079192003344', '0966554433', 'khoa.pham@gmail.com', 'Việt Nam', 'Thêm 1 bộ khăn tắm', '2026-09-27', '2026-09-30', 'Đang ở', 0, 0, 0)
         ]
@@ -100,14 +97,13 @@ def init_db():
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', sample_bookings)
         
-        # Thêm dịch vụ cho các phòng
         sample_services = [
             (1, 'Nước suối', 15000, 2, 30000),
             (2, 'Cà phê', 30000, 3, 90000),
             (2, 'Giặt ủi', 60000, 1, 60000),
             (3, 'Nước ép hoa quả', 50000, 4, 200000),
-            (4, 'Nước suối', 15000, 2, 30000),  # Dịch vụ phòng 102 đang ở
-            (5, 'Mì ly', 20000, 2, 40000)      # Dịch vụ phòng 202 đang ở
+            (4, 'Nước suối', 15000, 2, 30000),
+            (5, 'Mì ly', 20000, 2, 40000)
         ]
         c.executemany("INSERT INTO services (booking_id, service_name, price, quantity, total) VALUES (?, ?, ?, ?, ?)", sample_services)
         conn.commit()
@@ -118,6 +114,7 @@ conn = get_connection()
 # ==========================================
 # THANH ĐIỀU HƯỚNG (SIDEBAR)
 # ==========================================
+# Sửa chuẩn cho Sidebar Image (không dùng use_column_width hay use_container_width)
 if os.path.exists(IMAGE_PATH):
     st.sidebar.image(IMAGE_PATH)
 else:
@@ -168,7 +165,9 @@ if menu == "Sơ đồ phòng":
         col = cols[index % 3]
         with col:
             status_color = "🔴" if row['status'] == 'Đã đặt' else "🟢"
-            with st.container(border=True):
+            # Sửa chuẩn cho container thẻ phòng
+            with st.container():
+                st.markdown("---")
                 st.subheader(f"Phòng {row['room_number']} {status_color}")
                 st.write(f"**Loại:** {row['room_type']}")
                 st.write(f"**Giá:** {row['price_per_night']:,} VNĐ/đêm")
@@ -383,7 +382,6 @@ elif menu == "Quản lý khách lưu trú":
 elif menu == "Thống kê doanh thu":
     st.title("📊 Thống kê doanh thu dmelin hotel")
     
-    # 1. Doanh thu thực tế (đã trả phòng)
     history_df = pd.read_sql_query('''
         SELECT 
             b.id, b.room_number, r.room_type, b.customer_name, b.customer_id, b.phone_number,
@@ -395,7 +393,6 @@ elif menu == "Thống kê doanh thu":
         ORDER BY b.check_out_date DESC
     ''', conn)
     
-    # 2. Phòng đang có khách ở / đã đặt
     active_df = pd.read_sql_query('''
         SELECT 
             b.id, b.room_number, r.room_type, r.price_per_night, b.customer_name, b.customer_id, b.phone_number,
@@ -428,7 +425,6 @@ elif menu == "Thống kê doanh thu":
     total_room_rev = history_df['total_room_cost'].sum() if not history_df.empty else 0
     total_srv_rev = history_df['service_cost'].sum() if not history_df.empty else 0
     
-    # Chỉ số tổng quan
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("THỰC THU (Đã check-out)", f"{total_real_rev:,} VNĐ")
     m2.metric("DỰ KIẾN (Khách đang ở)", f"{active_temp_revenue:,} VNĐ")
