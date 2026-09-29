@@ -8,7 +8,7 @@ import streamlit as st
 # CẤU HÌNH TRANG VÀ KẾT NỐI DATABASE
 # ==========================================
 st.set_page_config(
-    page_title="Hệ thống Quản lý Khách sạn",
+    page_title="dmelin hotel - Hệ thống Quản lý Khách sạn",
     page_icon="🏨",
     layout="wide"
 )
@@ -90,7 +90,7 @@ if os.path.exists(IMAGE_PATH):
 else:
     st.sidebar.warning(f"⚠️ Chưa thấy file '{IMAGE_PATH}' trong thư mục.")
 
-st.sidebar.title("🏨 QL Khách Sạn")
+st.sidebar.title("🏨 dmelin hotel")
 menu = st.sidebar.radio(
     "Danh mục quản lý",
     [
@@ -107,14 +107,14 @@ menu = st.sidebar.radio(
 # 1. SƠ ĐỒ PHÒNG
 # ==========================================
 if menu == "Sơ đồ phòng":
-    st.title("📌 Sơ đồ & Trạng thái phòng")
+    st.title("📌 Sơ đồ & Trạng thái phòng - dmelin hotel")
     
     if os.path.exists(IMAGE_PATH):
         col_img, col_info = st.columns([1, 2])
         with col_img:
-            st.image(IMAGE_PATH, caption="Khách sạn")
+            st.image(IMAGE_PATH, caption="dmelin hotel")
         with col_info:
-            st.subheader("Chào mừng đến với Hệ thống Quản lý Khách sạn")
+            st.subheader("Chào mừng đến với Hệ thống Quản lý Khách sạn dmelin hotel")
             st.caption("Theo dõi tình trạng phòng, lượt lưu trú và dịch vụ thời gian thực.")
     
     rooms_df = pd.read_sql_query("SELECT * FROM rooms", conn)
@@ -155,7 +155,7 @@ if menu == "Sơ đồ phòng":
 # 2. CHECK-IN (NHẬN PHÒNG)
 # ==========================================
 elif menu == "Check-in (Nhận phòng)":
-    st.title("🔑 Lập phiếu nhận phòng")
+    st.title("🔑 Lập phiếu nhận phòng - dmelin hotel")
     
     available_rooms_df = pd.read_sql_query("SELECT room_number, room_type, price_per_night FROM rooms WHERE status = 'Trống'", conn)
     
@@ -209,7 +209,7 @@ elif menu == "Check-in (Nhận phòng)":
                     c.execute("UPDATE rooms SET status = 'Đã đặt' WHERE room_number = ?", (room_num,))
                     
                     conn.commit()
-                    st.success(f"Check-in thành công cho phòng {room_num}!")
+                    st.success(f"Check-in thành công cho phòng {room_num} tại dmelin hotel!")
                     st.rerun()
 
 # ==========================================
@@ -312,7 +312,7 @@ elif menu == "Dịch vụ & Check-out":
 # 4. QUẢN LÝ KHÁCH LƯU TRÚ
 # ==========================================
 elif menu == "Quản lý khách lưu trú":
-    st.title("📇 Hồ sơ khách lưu trú & Doanh thu đóng góp")
+    st.title("📇 Hồ sơ khách lưu trú - dmelin hotel")
     
     search_keyword = st.text_input("🔍 Tìm kiếm theo Tên, CCCD hoặc Số điện thoại")
     
@@ -345,10 +345,10 @@ elif menu == "Quản lý khách lưu trú":
         st.dataframe(guests_df)
 
 # ==========================================
-# 5. THỐNG KÊ DOANH THU
+# 5. THỐNG KÊ DOANH THU KẾT HỢP KHÁCH HÀNG
 # ==========================================
 elif menu == "Thống kê doanh thu":
-    st.title("📊 Thống kê doanh thu kết hợp dữ liệu khách hàng")
+    st.title("📊 Thống kê doanh thu dmelin hotel")
     
     history_df = pd.read_sql_query('''
         SELECT 
@@ -370,17 +370,17 @@ elif menu == "Thống kê doanh thu":
         total_guests = history_df['customer_id'].nunique()
         
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Tổng doanh thu", f"{total_rev:,} VNĐ")
+        m1.metric("TỔNG DOANH THU", f"{total_rev:,} VNĐ")
         m2.metric("Doanh thu tiền phòng", f"{total_room_rev:,} VNĐ")
         m3.metric("Doanh thu dịch vụ", f"{total_srv_rev:,} VNĐ")
-        m4.metric("Tổng số khách thanh toán", f"{total_guests} khách")
+        m4.metric("Tổng số khách đã ở", f"{total_guests} khách")
         
         st.markdown("---")
         
-        tab_rev1, tab_rev2 = st.tabs(["👑 Khách hàng đóng góp cao nhất (VIP)", "📈 Biểu đồ doanh thu"])
+        tab_rev1, tab_rev2 = st.tabs(["👑 Doanh thu theo Khách lưu trú (VIP)", "📈 Biểu đồ & Doanh thu phòng"])
         
         with tab_rev1:
-            st.subheader("Top khách hàng mang lại doanh thu cao nhất")
+            st.subheader("Doanh thu tổng hợp theo từng khách hàng")
             customer_rev = history_df.groupby(['customer_name', 'customer_id', 'phone_number']).agg(
                 so_luot_o=('id', 'count'),
                 tong_chi_tieu=('total_amount', 'sum'),
@@ -388,7 +388,16 @@ elif menu == "Thống kê doanh thu":
                 tien_dich_vu=('service_cost', 'sum')
             ).reset_index().sort_values(by='tong_chi_tieu', ascending=False)
             
-            customer_rev.columns = ['Họ tên', 'CCCD/Hộ chiếu', 'SĐT', 'Số lượt lưu trú', 'Tổng chi tiêu (VNĐ)', 'Tiền phòng (VNĐ)', 'Tiền dịch vụ (VNĐ)']
+            customer_rev.columns = [
+                'Họ và tên khách hàng', 
+                'CCCD / Hộ chiếu', 
+                'Số điện thoại', 
+                'Số lượt lưu trú', 
+                'Tổng doanh thu đóng góp (VNĐ)', 
+                'Tiền phòng (VNĐ)', 
+                'Tiền dịch vụ (VNĐ)'
+            ]
+            
             st.dataframe(customer_rev)
             
         with tab_rev2:
@@ -405,14 +414,14 @@ elif menu == "Thống kê doanh thu":
                 type_rev.columns = ['Loại phòng', 'Doanh thu']
                 st.dataframe(type_rev)
 
-        st.subheader("Nhật ký chi tiết các giao dịch hoàn tất")
+        st.subheader("Nhật ký chi tiết tất cả giao dịch hoàn tất")
         st.dataframe(history_df)
 
 # ==========================================
 # 6. CẤU HÌNH PHÒNG
 # ==========================================
 elif menu == "Cấu hình phòng":
-    st.title("⚙️ Cấu hình danh mục phòng")
+    st.title("⚙️ Cấu hình danh mục phòng - dmelin hotel")
     
     with st.form("add_room_form"):
         st.subheader("Thêm phòng mới")
