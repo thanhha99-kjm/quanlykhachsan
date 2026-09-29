@@ -17,7 +17,7 @@ st.set_page_config(
 IMAGE_FILE = "images (1).jpg"
 
 def load_image_safe(image_path):
-    """Đọc ảnh an toàn, trả về đối tượng PIL Image hoặc None"""
+    """Đọc ảnh an toàn qua PIL"""
     if os.path.exists(image_path):
         try:
             return Image.open(image_path)
@@ -63,6 +63,23 @@ def init_db():
         )
     ''')
     
+    # TỰ ĐỘNG TƯƠNG THÍCH DATABASE CŨ (MIGRATION)
+    # Kiểm tra và thêm các cột còn thiếu nếu DB được tạo từ code phiên bản cũ
+    c.execute("PRAGMA table_info(bookings)")
+    columns = [column[1] for column in c.fetchall()]
+    
+    missing_columns = {
+        'phone_number': 'TEXT',
+        'email': 'TEXT',
+        'nationality': 'TEXT',
+        'notes': 'TEXT'
+    }
+    
+    for col_name, col_type in missing_columns.items():
+        if col_name not in columns:
+            c.execute(f"ALTER TABLE bookings ADD COLUMN {col_name} {col_type}")
+            conn.commit()
+
     # 3. Bảng dịch vụ
     c.execute('''
         CREATE TABLE IF NOT EXISTS services (
@@ -76,7 +93,7 @@ def init_db():
     ''')
     conn.commit()
 
-    # Tạo dữ liệu phòng mẫu nếu trống
+    # Tạo dữ liệu phòng mẫu nếu chưa có
     c.execute("SELECT COUNT(*) FROM rooms")
     if c.fetchone()[0] == 0:
         rooms_data = [
@@ -89,7 +106,7 @@ def init_db():
         c.executemany("INSERT INTO rooms VALUES (?, ?, ?, ?)", rooms_data)
         conn.commit()
 
-    # Tạo dữ liệu khách mẫu nếu trống (3 phòng đã trả + 2 phòng đang ở)
+    # Tạo dữ liệu khách mẫu nếu chưa có
     c.execute("SELECT COUNT(*) FROM bookings")
     if c.fetchone()[0] == 0:
         bookings_data = [
@@ -126,7 +143,6 @@ conn = get_db()
 # ==========================================
 img_obj = load_image_safe(IMAGE_FILE)
 
-# Xử lý hiển thị ảnh sidebar an toàn 100%
 if img_obj is not None:
     st.sidebar.image(img_obj)
 else:
@@ -151,7 +167,6 @@ menu = st.sidebar.radio(
 if menu == "Sơ đồ phòng":
     st.title("📌 Sơ đồ & Trạng thái phòng - dmelin hotel")
     
-    # Xử lý hiển thị khối chào mừng trang chủ an toàn 100%
     if img_obj is not None:
         c_img, c_txt = st.columns([1, 2])
         with c_img:
