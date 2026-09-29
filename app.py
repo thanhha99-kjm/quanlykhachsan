@@ -5,25 +5,25 @@ import pandas as pd
 import streamlit as st
 
 # ==========================================
-# CẤU HÌNH TRANG VÀ KẾT NỐI DATABASE
+# CẤU HÌNH TRANG & DATABASE
 # ==========================================
 st.set_page_config(
-    page_title="dmelin hotel - Hệ thống Quản lý Khách sạn",
+    page_title="dmelin hotel - Quản Lý Khách Sạn",
     page_icon="🏨",
     layout="wide"
 )
 
-IMAGE_PATH = "images (1).jpg"
+IMAGE_FILE = "images (1).jpg"
 
 @st.cache_resource
-def get_connection():
+def get_db():
     return sqlite3.connect("hotel.db", check_same_thread=False)
 
 def init_db():
-    conn = get_connection()
+    conn = get_db()
     c = conn.cursor()
     
-    # 1. Bảng danh sách phòng
+    # 1. Bảng phòng
     c.execute('''
         CREATE TABLE IF NOT EXISTS rooms (
             room_number TEXT PRIMARY KEY,
@@ -33,7 +33,7 @@ def init_db():
         )
     ''')
     
-    # 2. Bảng đặt phòng / lưu trú
+    # 2. Bảng lưu trú / đặt phòng
     c.execute('''
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +53,7 @@ def init_db():
         )
     ''')
     
-    # 3. Bảng dịch vụ sử dụng
+    # 3. Bảng dịch vụ
     c.execute('''
         CREATE TABLE IF NOT EXISTS services (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,28 +66,28 @@ def init_db():
     ''')
     conn.commit()
 
-    # Thêm phòng mẫu nếu bảng phòng trống
+    # Tạo dữ liệu phòng mẫu nếu trống
     c.execute("SELECT COUNT(*) FROM rooms")
     if c.fetchone()[0] == 0:
-        sample_rooms = [
+        rooms_data = [
             ('101', 'Đơn Standard', 500000, 'Trống'),
             ('102', 'Đơn Standard', 500000, 'Đã đặt'),
             ('201', 'Đôi Deluxe', 800000, 'Trống'),
             ('202', 'Đôi Deluxe', 800000, 'Đã đặt'),
             ('301', 'VIP Suite', 1500000, 'Trống'),
         ]
-        c.executemany("INSERT INTO rooms VALUES (?, ?, ?, ?)", sample_rooms)
+        c.executemany("INSERT INTO rooms VALUES (?, ?, ?, ?)", rooms_data)
         conn.commit()
 
-    # Thêm dữ liệu lưu trú mẫu nếu bảng đặt phòng trống (3 lượt đã ở, 2 lượt đang ở)
+    # Tạo dữ liệu khách mẫu nếu trống (3 phòng đã trả + 2 phòng đang ở)
     c.execute("SELECT COUNT(*) FROM bookings")
     if c.fetchone()[0] == 0:
-        sample_bookings = [
-            ('101', 'Nguyễn Văn An', '079201001234', '0903123456', 'an.nguyen@gmail.com', 'Việt Nam', 'Yêu cầu phòng yên tĩnh', '2026-09-20', '2026-09-22', 'Đã trả phòng', 1000000, 30000, 1030000),
-            ('201', 'Trần Thị Bích', '079198005678', '0918987654', 'bich.tran@yahoo.com', 'Việt Nam', 'Khách VIP đi công tác', '2026-09-23', '2026-09-26', 'Đã trả phòng', 2400000, 150000, 2550000),
-            ('301', 'Michael Smith', 'C987654321', '0933112233', 'm.smith@outlook.com', 'Mỹ', 'Khách hàng thân thiết', '2026-09-26', '2026-09-28', 'Đã trả phòng', 3000000, 200000, 3200000),
-            ('102', 'Lê Hoàng Nam', '079195009988', '0977889900', 'nam.le@gmail.com', 'Việt Nam', 'Gọi báo thức 7h sáng', '2026-09-28', '2026-09-30', 'Đang ở', 0, 0, 0),
-            ('202', 'Phạm Minh Khoa', '079192003344', '0966554433', 'khoa.pham@gmail.com', 'Việt Nam', 'Thêm 1 bộ khăn tắm', '2026-09-27', '2026-09-30', 'Đang ở', 0, 0, 0)
+        bookings_data = [
+            ('101', 'Nguyễn Văn An', '079201001234', '0903123456', 'an.nguyen@gmail.com', 'Việt Nam', 'Phòng yên tĩnh', '2026-09-20', '2026-09-22', 'Đã trả phòng', 1000000, 30000, 1030000),
+            ('201', 'Trần Thị Bích', '079198005678', '0918987654', 'bich.tran@yahoo.com', 'Việt Nam', 'Khách VIP', '2026-09-23', '2026-09-26', 'Đã trả phòng', 2400000, 150000, 2550000),
+            ('301', 'Michael Smith', 'C987654321', '0933112233', 'm.smith@outlook.com', 'Mỹ', 'Khách quen', '2026-09-26', '2026-09-28', 'Đã trả phòng', 3000000, 200000, 3200000),
+            ('102', 'Lê Hoàng Nam', '079195009988', '0977889900', 'nam.le@gmail.com', 'Việt Nam', 'Báo thức 7h', '2026-09-28', '2026-09-30', 'Đang ở', 0, 0, 0),
+            ('202', 'Phạm Minh Khoa', '079192003344', '0966554433', 'khoa.pham@gmail.com', 'Việt Nam', 'Thêm khăn tắm', '2026-09-27', '2026-09-30', 'Đang ở', 0, 0, 0)
         ]
         c.executemany('''
             INSERT INTO bookings (
@@ -95,9 +95,9 @@ def init_db():
                 nationality, notes, check_in_date, check_out_date, status,
                 total_room_cost, service_cost, total_amount
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', sample_bookings)
+        ''', bookings_data)
         
-        sample_services = [
+        services_data = [
             (1, 'Nước suối', 15000, 2, 30000),
             (2, 'Cà phê', 30000, 3, 90000),
             (2, 'Giặt ủi', 60000, 1, 60000),
@@ -105,19 +105,17 @@ def init_db():
             (4, 'Nước suối', 15000, 2, 30000),
             (5, 'Mì ly', 20000, 2, 40000)
         ]
-        c.executemany("INSERT INTO services (booking_id, service_name, price, quantity, total) VALUES (?, ?, ?, ?, ?)", sample_services)
+        c.executemany("INSERT INTO services (booking_id, service_name, price, quantity, total) VALUES (?, ?, ?, ?, ?)", services_data)
         conn.commit()
 
 init_db()
-conn = get_connection()
+conn = get_db()
 
 # ==========================================
-# THANH ĐIỀU HƯỚNG (SIDEBAR)
+# SIDEBAR NAVIGATION
 # ==========================================
-if os.path.exists(IMAGE_PATH):
-    st.sidebar.image(IMAGE_PATH)
-else:
-    st.sidebar.warning(f"⚠️ Chưa thấy file '{IMAGE_PATH}' trong thư mục.")
+if os.path.exists(IMAGE_FILE):
+    st.sidebar.image(IMAGE_FILE)
 
 st.sidebar.title("🏨 dmelin hotel")
 menu = st.sidebar.radio(
@@ -138,203 +136,171 @@ menu = st.sidebar.radio(
 if menu == "Sơ đồ phòng":
     st.title("📌 Sơ đồ & Trạng thái phòng - dmelin hotel")
     
-    if os.path.exists(IMAGE_PATH):
-        col_img, col_info = st.columns([1, 2])
-        with col_img:
-            st.image(IMAGE_PATH, caption="dmelin hotel")
-        with col_info:
-            st.subheader("Chào mừng đến với Hệ thống Quản lý Khách sạn dmelin hotel")
-            st.caption("Theo dõi tình trạng phòng, lượt lưu trú và dịch vụ thời gian thực.")
+    if os.path.exists(IMAGE_FILE):
+        c_img, c_txt = st.columns([1, 2])
+        with c_img:
+            st.image(IMAGE_FILE)
+        with c_txt:
+            st.subheader("Chào mừng đến với dmelin hotel")
+            st.write("Hệ thống quản lý phòng, lưu trú và doanh thu trực quan.")
     
     rooms_df = pd.read_sql_query("SELECT * FROM rooms", conn)
     
-    col_a, col_b, col_c = st.columns(3)
     total_r = len(rooms_df)
-    occupied_r = len(rooms_df[rooms_df['status'] == 'Đã đặt'])
-    available_r = total_r - occupied_r
+    occ_r = len(rooms_df[rooms_df['status'] == 'Đã đặt'])
+    emp_r = total_r - occ_r
     
-    col_a.metric("Tổng số phòng", total_r)
-    col_b.metric("Phòng đang có khách", occupied_r)
-    col_c.metric("Phòng trống", available_r)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Tổng số phòng", total_r)
+    col2.metric("Phòng đang có khách", occ_r)
+    col3.metric("Phòng trống", emp_r)
     
     st.markdown("---")
     
     cols = st.columns(3)
-    for index, row in rooms_df.iterrows():
-        col = cols[index % 3]
-        with col:
-            status_color = "🔴" if row['status'] == 'Đã đặt' else "🟢"
-            st.markdown(f"### Phòng {row['room_number']} {status_color}")
+    for idx, row in rooms_df.iterrows():
+        with cols[idx % 3]:
+            icon = "🔴" if row['status'] == 'Đã đặt' else "🟢"
+            st.markdown(f"### Phòng {row['room_number']} {icon}")
             st.write(f"**Loại:** {row['room_type']}")
             st.write(f"**Giá:** {row['price_per_night']:,} VNĐ/đêm")
             st.write(f"**Trạng thái:** {row['status']}")
             
             if row['status'] == 'Đã đặt':
-                b_df = pd.read_sql_query(
+                b_info = pd.read_sql_query(
                     "SELECT customer_name, phone_number, check_in_date FROM bookings WHERE room_number = ? AND status = 'Đang ở'",
                     conn, params=(row['room_number'],)
                 )
-                if not b_df.empty:
-                    st.caption(f"👤 Khách: {b_df.iloc[0]['customer_name']}")
-                    st.caption(f"📞 SĐT: {b_df.iloc[0]['phone_number']}")
-                    st.caption(f"📅 Nhận: {b_df.iloc[0]['check_in_date']}")
+                if not b_info.empty:
+                    st.caption(f"👤 Khách: {b_info.iloc[0]['customer_name']}")
+                    st.caption(f"📞 SĐT: {b_info.iloc[0]['phone_number']}")
+                    st.caption(f"📅 Nhận: {b_info.iloc[0]['check_in_date']}")
             st.markdown("---")
 
 # ==========================================
-# 2. CHECK-IN (NHẬN PHÒNG)
+# 2. CHECK-IN
 # ==========================================
 elif menu == "Check-in (Nhận phòng)":
     st.title("🔑 Lập phiếu nhận phòng - dmelin hotel")
     
-    available_rooms_df = pd.read_sql_query("SELECT room_number, room_type, price_per_night FROM rooms WHERE status = 'Trống'", conn)
+    empty_rooms = pd.read_sql_query("SELECT room_number, room_type, price_per_night FROM rooms WHERE status = 'Trống'", conn)
     
-    if available_rooms_df.empty:
+    if empty_rooms.empty:
         st.warning("Hiện tại không còn phòng trống!")
     else:
-        room_options = [f"{row['room_number']} - {row['room_type']} ({row['price_per_night']:,} VNĐ)" for _, row in available_rooms_df.iterrows()]
+        r_options = [f"{r['room_number']} - {r['room_type']} ({r['price_per_night']:,} VNĐ)" for _, r in empty_rooms.iterrows()]
         
-        with st.form("checkin_form"):
-            st.subheader("1. Chọn phòng & Thời gian")
-            selected_room_str = st.selectbox("Chọn phòng trống", room_options)
+        with st.form("form_checkin"):
+            st.subheader("1. Thông tin phòng")
+            sel_room = st.selectbox("Chọn phòng trống", r_options)
             
-            col1, col2 = st.columns(2)
-            check_in_date = col1.date_input("Ngày nhận phòng", datetime.date.today())
-            check_out_date = col2.date_input("Ngày dự kiến trả phòng", datetime.date.today() + datetime.timedelta(days=1))
+            col_a, col_b = st.columns(2)
+            d_in = col_a.date_input("Ngày nhận", datetime.date.today())
+            d_out = col_b.date_input("Ngày trả dự kiến", datetime.date.today() + datetime.timedelta(days=1))
             
-            st.subheader("2. Thông tin khách lưu trú")
-            c_col1, c_col2 = st.columns(2)
-            customer_name = c_col1.text_input("Họ và tên khách hàng *")
-            customer_id = c_col2.text_input("Số CCCD / Hộ chiếu *")
+            st.subheader("2. Thông tin khách hàng")
+            c_name = st.text_input("Họ và tên khách *")
+            c_id = st.text_input("Số CCCD / Hộ chiếu *")
             
-            p_col1, p_col2, p_col3 = st.columns(3)
-            phone_number = p_col1.text_input("Số điện thoại")
-            email = p_col2.text_input("Email")
-            nationality = p_col3.text_input("Quốc tịch", value="Việt Nam")
+            ca, cb, cc = st.columns(3)
+            c_phone = ca.text_input("Số điện thoại")
+            c_email = cb.text_input("Email")
+            c_nation = cc.text_input("Quốc tịch", value="Việt Nam")
             
-            notes = st.text_area("Ghi chú đặc biệt (Ví dụ: Yêu cầu phòng tầng cao, thêm gối...)")
+            c_notes = st.text_area("Ghi chú đặc biệt")
             
-            submit = st.form_submit_button("Thực hiện Check-in")
+            btn_submit = st.form_submit_button("Thực hiện Check-in")
             
-            if submit:
-                if not customer_name or not customer_id:
-                    st.error("Vui lòng điền các thông tin bắt buộc (*)")
-                elif check_out_date <= check_in_date:
-                    st.error("Ngày trả phòng phải sau ngày nhận phòng!")
+            if btn_submit:
+                if not c_name or not c_id:
+                    st.error("Vui lòng nhập tên và số CCCD!")
+                elif d_out <= d_in:
+                    st.error("Ngày trả phòng phải sau ngày nhận!")
                 else:
-                    room_num = selected_room_str.split(" - ")[0]
-                    c = conn.cursor()
-                    
-                    c.execute('''
+                    r_num = sel_room.split(" - ")[0]
+                    cur = conn.cursor()
+                    cur.execute('''
                         INSERT INTO bookings (
                             room_number, customer_name, customer_id, phone_number, email, 
                             nationality, notes, check_in_date, check_out_date, status
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Đang ở')
-                    ''', (
-                        room_num, customer_name, customer_id, phone_number, email, 
-                        nationality, notes, str(check_in_date), str(check_out_date)
-                    ))
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Đang ở')
+                    ''', (r_num, c_name, c_id, c_phone, c_email, c_nation, c_notes, str(d_in), str(d_out)))
                     
-                    c.execute("UPDATE rooms SET status = 'Đã đặt' WHERE room_number = ?", (room_num,))
-                    
+                    cur.execute("UPDATE rooms SET status = 'Đã đặt' WHERE room_number = ?", (r_num,))
                     conn.commit()
-                    st.success(f"Check-in thành công cho phòng {room_num} tại dmelin hotel!")
+                    st.success(f"Check-in thành công cho phòng {r_num}!")
                     st.rerun()
 
 # ==========================================
-# 3. DỊCH VỤ & CHECK-OUT (TRẢ PHÒNG)
+# 3. DỊCH VỤ & CHECK-OUT
 # ==========================================
 elif menu == "Dịch vụ & Check-out":
     st.title("🛠️ Dịch vụ phát sinh & Thanh toán")
     
-    active_bookings = pd.read_sql_query('''
-        SELECT id, room_number, customer_name, check_in_date 
-        FROM bookings 
-        WHERE status = 'Đang ở'
-    ''', conn)
+    act_bookings = pd.read_sql_query("SELECT id, room_number, customer_name FROM bookings WHERE status = 'Đang ở'", conn)
     
-    if active_bookings.empty:
-        st.info("Hiện không có phòng nào đang có khách lưu trú.")
+    if act_bookings.empty:
+        st.info("Hiện không có phòng nào đang lưu trú.")
     else:
-        booking_dict = {
-            f"Phòng {row['room_number']} - Khách: {row['customer_name']} (Mã phiếu: {row['id']})": row['id']
-            for _, row in active_bookings.iterrows()
-        }
+        b_dict = {f"Phòng {r['room_number']} - {r['customer_name']} (Mã: {r['id']})": r['id'] for _, r in act_bookings.iterrows()}
+        sel_label = st.selectbox("Chọn lượt lưu trú cần xử lý", list(b_dict.keys()))
+        sel_id = b_dict[sel_label]
         
-        selected_label = st.selectbox("Chọn lượt lưu trú cần xử lý", list(booking_dict.keys()))
-        selected_booking_id = booking_dict[selected_label]
+        tab_srv, tab_pay = st.tabs(["➕ Thêm dịch vụ", "💳 Check-out & Thanh toán"])
         
-        tab1, tab2 = st.tabs(["➕ Thêm dịch vụ", "💳 Thanh toán & Check-out"])
-        
-        with tab1:
-            st.subheader("Ghi nhận dịch vụ / Nước uống phát sinh")
-            with st.form("service_form"):
-                srv_name = st.text_input("Tên dịch vụ / Mặt hàng", value="Nước suối")
-                srv_price = st.number_input("Đơn giá (VNĐ)", min_value=0, value=15000, step=5000)
-                srv_qty = st.number_input("Số lượng", min_value=1, value=1, step=1)
+        with tab_srv:
+            with st.form("form_srv"):
+                s_name = st.text_input("Tên dịch vụ", value="Nước suối")
+                s_price = st.number_input("Đơn giá (VNĐ)", min_value=0, value=15000, step=5000)
+                s_qty = st.number_input("Số lượng", min_value=1, value=1, step=1)
                 
-                srv_submit = st.form_submit_button("Thêm vào hóa đơn")
-                if srv_submit:
-                    total_srv = srv_price * srv_qty
-                    c = conn.cursor()
-                    c.execute('''
-                        INSERT INTO services (booking_id, service_name, price, quantity, total)
-                        VALUES (?, ?, ?, ?, ?)
-                    ''', (selected_booking_id, srv_name, srv_price, srv_qty, total_srv))
+                if st.form_submit_button("Thêm dịch vụ"):
+                    tot = s_price * s_qty
+                    cur = conn.cursor()
+                    cur.execute("INSERT INTO services (booking_id, service_name, price, quantity, total) VALUES (?, ?, ?, ?, ?)",
+                                (sel_id, s_name, s_price, s_qty, tot))
                     conn.commit()
-                    st.success(f"Đã thêm {srv_qty}x {srv_name} vào hóa đơn.")
+                    st.success(f"Đã thêm {s_qty}x {s_name}.")
             
-            srv_list = pd.read_sql_query("SELECT service_name as 'Tên dịch vụ', price as 'Đơn giá', quantity as 'Số lượng', total as 'Thành tiền' FROM services WHERE booking_id = ?", conn, params=(selected_booking_id,))
-            if not srv_list.empty:
-                st.write("**Dịch vụ đã sử dụng:**")
-                st.dataframe(srv_list)
-        
-        with tab2:
-            st.subheader("Chi tiết hóa đơn & Trả phòng")
-            
+            srv_df = pd.read_sql_query("SELECT service_name as 'Dịch vụ', price as 'Đơn giá', quantity as 'Số lượng', total as 'Thành tiền' FROM services WHERE booking_id = ?", conn, params=(sel_id,))
+            if not srv_df.empty:
+                st.dataframe(srv_df)
+
+        with tab_pay:
             b_info = pd.read_sql_query('''
                 SELECT b.*, r.price_per_night 
-                FROM bookings b 
-                JOIN rooms r ON b.room_number = r.room_number 
+                FROM bookings b JOIN rooms r ON b.room_number = r.room_number 
                 WHERE b.id = ?
-            ''', conn, params=(selected_booking_id,)).iloc[0]
+            ''', conn, params=(sel_id,)).iloc[0]
             
-            d_in = datetime.datetime.strptime(b_info['check_in_date'], "%Y-%m-%d").date()
-            d_out = datetime.date.today()
-            days = (d_out - d_in).days
-            if days <= 0:
-                days = 1
+            d1 = datetime.datetime.strptime(b_info['check_in_date'], "%Y-%m-%d").date()
+            d2 = datetime.date.today()
+            days = max((d2 - d1).days, 1)
             
-            room_cost = days * b_info['price_per_night']
+            r_cost = days * b_info['price_per_night']
+            s_cost_df = pd.read_sql_query("SELECT SUM(total) as stot FROM services WHERE booking_id = ?", conn, params=(sel_id,))
+            s_cost = s_cost_df.iloc[0]['stot'] if s_cost_df.iloc[0]['stot'] else 0
             
-            srv_tot_df = pd.read_sql_query("SELECT SUM(total) as srv_total FROM services WHERE booking_id = ?", conn, params=(selected_booking_id,))
-            srv_cost = srv_tot_df.iloc[0]['srv_total'] if srv_tot_df.iloc[0]['srv_total'] is not None else 0
-            
-            grand_total = room_cost + srv_cost
+            g_total = r_cost + s_cost
             
             st.write(f"**Khách hàng:** {b_info['customer_name']} | **CCCD:** {b_info['customer_id']} | **SĐT:** {b_info['phone_number']}")
-            st.write(f"**Quốc tịch:** {b_info['nationality']} | **Email:** {b_info['email']}")
-            st.write(f"**Phòng:** {b_info['room_number']} | **Ngày vào:** {b_info['check_in_date']} | **Ngày trả:** {d_out}")
-            if b_info['notes']:
-                st.info(f"📌 Ghi chú: {b_info['notes']}")
+            st.write(f"**Phòng:** {b_info['room_number']} | **Ngày vào:** {b_info['check_in_date']} | **Ngày trả:** {d2}")
             st.markdown("---")
-            st.write(f"**Số ngày ở:** {days} đêm x {b_info['price_per_night']:,} VNĐ = **{room_cost:,} VNĐ**")
-            st.write(f"**Tiền dịch vụ:** **{srv_cost:,} VNĐ**")
-            st.markdown(f"### 💵 **Tổng thanh toán:** :red[{grand_total:,} VNĐ]")
+            st.write(f"Tiền phòng ({days} đêm): **{r_cost:,} VNĐ**")
+            st.write(f"Tiền dịch vụ: **{s_cost:,} VNĐ**")
+            st.markdown(f"### 💵 **Tổng thanh toán:** :red[{g_total:,} VNĐ]")
             
             if st.button("Xác nhận thanh toán & Trả phòng", type="primary"):
-                c = conn.cursor()
-                c.execute('''
+                cur = conn.cursor()
+                cur.execute('''
                     UPDATE bookings 
                     SET check_out_date = ?, status = 'Đã trả phòng', total_room_cost = ?, service_cost = ?, total_amount = ?
                     WHERE id = ?
-                ''', (str(d_out), room_cost, srv_cost, grand_total, selected_booking_id))
-                
-                c.execute("UPDATE rooms SET status = 'Trống' WHERE room_number = ?", (b_info['room_number'],))
-                
+                ''', (str(d2), r_cost, s_cost, g_total, sel_id))
+                cur.execute("UPDATE rooms SET status = 'Trống' WHERE room_number = ?", (b_info['room_number'],))
                 conn.commit()
                 st.balloons()
-                st.success("Thanh toán hoàn tất! Phòng đã được đưa về trạng thái trống.")
+                st.success("Thanh toán thành công!")
                 st.rerun()
 
 # ==========================================
@@ -343,152 +309,103 @@ elif menu == "Dịch vụ & Check-out":
 elif menu == "Quản lý khách lưu trú":
     st.title("📇 Hồ sơ khách lưu trú - dmelin hotel")
     
-    search_keyword = st.text_input("🔍 Tìm kiếm theo Tên, CCCD hoặc Số điện thoại")
-    
-    query = '''
+    kw = st.text_input("🔍 Tìm theo Tên, CCCD hoặc SĐT")
+    sql = '''
         SELECT 
-            id as 'Mã Phiếu',
-            customer_name as 'Họ tên',
-            customer_id as 'CCCD/Hộ chiếu',
-            phone_number as 'SĐT',
-            email as 'Email',
-            nationality as 'Quốc tịch',
-            room_number as 'Phòng',
-            check_in_date as 'Ngày vào',
-            check_out_date as 'Ngày ra',
-            total_amount as 'Doanh thu phát sinh (VNĐ)',
-            status as 'Trạng thái'
+            id as 'Mã Phiếu', customer_name as 'Họ tên', customer_id as 'CCCD/Hộ chiếu',
+            phone_number as 'SĐT', email as 'Email', nationality as 'Quốc tịch',
+            room_number as 'Phòng', check_in_date as 'Ngày vào', check_out_date as 'Ngày ra',
+            total_amount as 'Tổng chi tiêu (VNĐ)', status as 'Trạng thái'
         FROM bookings
     '''
+    if kw:
+        sql += f" WHERE customer_name LIKE '%{kw}%' OR customer_id LIKE '%{kw}%' OR phone_number LIKE '%{kw}%'"
+    sql += " ORDER BY id DESC"
     
-    if search_keyword:
-        query += f" WHERE customer_name LIKE '%{search_keyword}%' OR customer_id LIKE '%{search_keyword}%' OR phone_number LIKE '%{search_keyword}%'"
-        
-    query += " ORDER BY id DESC"
-    
-    guests_df = pd.read_sql_query(query, conn)
-    
-    if guests_df.empty:
-        st.info("Chưa tìm thấy dữ liệu khách lưu trú phù hợp.")
-    else:
-        st.dataframe(guests_df)
+    st.dataframe(pd.read_sql_query(sql, conn))
 
 # ==========================================
-# 5. THỐNG KÊ DOANH THU & PHÒNG ĐANG Ở / ĐÃ Ở
+# 5. THỐNG KÊ DOANH THU
 # ==========================================
 elif menu == "Thống kê doanh thu":
-    st.title("📊 Thống kê doanh thu dmelin hotel")
+    st.title("📊 Thống kê doanh thu - dmelin hotel")
     
-    history_df = pd.read_sql_query('''
-        SELECT 
-            b.id, b.room_number, r.room_type, b.customer_name, b.customer_id, b.phone_number,
-            b.check_in_date, b.check_out_date, 
-            b.total_room_cost, b.service_cost, b.total_amount, b.status 
-        FROM bookings b
-        JOIN rooms r ON b.room_number = r.room_number
+    hist_df = pd.read_sql_query('''
+        SELECT b.*, r.room_type 
+        FROM bookings b JOIN rooms r ON b.room_number = r.room_number 
         WHERE b.status = 'Đã trả phòng'
         ORDER BY b.check_out_date DESC
     ''', conn)
     
-    active_df = pd.read_sql_query('''
-        SELECT 
-            b.id, b.room_number, r.room_type, r.price_per_night, b.customer_name, b.customer_id, b.phone_number,
-            b.check_in_date, b.check_out_date, b.status
-        FROM bookings b
-        JOIN rooms r ON b.room_number = r.room_number
+    act_df = pd.read_sql_query('''
+        SELECT b.*, r.room_type, r.price_per_night 
+        FROM bookings b JOIN rooms r ON b.room_number = r.room_number 
         WHERE b.status = 'Đang ở'
     ''', conn)
     
-    active_temp_revenue = 0
-    if not active_df.empty:
-        temp_rev_list = []
-        for _, row in active_df.iterrows():
-            d_in = datetime.datetime.strptime(row['check_in_date'], "%Y-%m-%d").date()
-            d_today = datetime.date.today()
-            days = (d_today - d_in).days
-            if days <= 0:
-                days = 1
-            
-            srv_tot_df = pd.read_sql_query("SELECT SUM(total) as srv_total FROM services WHERE booking_id = ?", conn, params=(row['id'],))
-            srv_cost = srv_tot_df.iloc[0]['srv_total'] if srv_tot_df.iloc[0]['srv_total'] is not None else 0
-            
-            est_total = (days * row['price_per_night']) + srv_cost
-            temp_rev_list.append(est_total)
-            
-        active_df['Tạm tính doanh thu (VNĐ)'] = temp_rev_list
-        active_temp_revenue = sum(temp_rev_list)
+    est_rev = 0
+    if not act_df.empty:
+        temp_list = []
+        for _, r in act_df.iterrows():
+            d1 = datetime.datetime.strptime(r['check_in_date'], "%Y-%m-%d").date()
+            days = max((datetime.date.today() - d1).days, 1)
+            sc = pd.read_sql_query("SELECT SUM(total) as stot FROM services WHERE booking_id = ?", conn, params=(r['id'],)).iloc[0]['stot'] or 0
+            temp_list.append((days * r['price_per_night']) + sc)
+        act_df['Doanh thu tạm tính (VNĐ)'] = temp_list
+        est_rev = sum(temp_list)
 
-    total_real_rev = history_df['total_amount'].sum() if not history_df.empty else 0
-    total_room_rev = history_df['total_room_cost'].sum() if not history_df.empty else 0
-    total_srv_rev = history_df['service_cost'].sum() if not history_df.empty else 0
+    real_rev = hist_df['total_amount'].sum() if not hist_df.empty else 0
+    room_rev = hist_df['total_room_cost'].sum() if not hist_df.empty else 0
+    srv_rev = hist_df['service_cost'].sum() if not hist_df.empty else 0
     
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("THỰC THU (Đã check-out)", f"{total_real_rev:,} VNĐ")
-    m2.metric("DỰ KIẾN (Khách đang ở)", f"{active_temp_revenue:,} VNĐ")
-    m3.metric("Doanh thu tiền phòng", f"{total_room_rev:,} VNĐ")
-    m4.metric("Doanh thu dịch vụ", f"{total_srv_rev:,} VNĐ")
+    m1.metric("THỰC THU (Đã check-out)", f"{real_rev:,} VNĐ")
+    m2.metric("DỰ KIẾN (Đang lưu trú)", f"{est_rev:,} VNĐ")
+    m3.metric("Doanh thu tiền phòng", f"{room_rev:,} VNĐ")
+    m4.metric("Doanh thu dịch vụ", f"{srv_rev:,} VNĐ")
     
     st.markdown("---")
     
-    tab_active, tab_history, tab_vip = st.tabs([
-        "🔴 Phòng đang ở / Đã đặt", 
-        "🟢 Phòng đã ở & Check-out", 
-        "👑 Doanh thu theo Khách hàng (VIP)"
-    ])
+    t1, t2, t3 = st.tabs(["🔴 Phòng đang lưu trú", "🟢 Lịch sử đã checkout", "👑 Doanh thu theo Khách hàng VIP"])
     
-    with tab_active:
-        st.subheader("Danh sách các phòng đang có khách lưu trú")
-        if active_df.empty:
-            st.info("Hiện không có phòng nào đang có khách ở.")
+    with t1:
+        if act_df.empty:
+            st.info("Không có phòng nào đang ở.")
         else:
-            display_active = active_df[[
-                'room_number', 'room_type', 'customer_name', 'phone_number', 
-                'check_in_date', 'check_out_date', 'Tạm tính doanh thu (VNĐ)'
-            ]]
-            display_active.columns = ['Số phòng', 'Loại phòng', 'Khách hàng', 'SĐT', 'Ngày vào', 'Ngày ra dự kiến', 'Doanh thu tạm tính (VNĐ)']
-            st.dataframe(display_active)
+            disp = act_df[['room_number', 'room_type', 'customer_name', 'phone_number', 'check_in_date', 'Doanh thu tạm tính (VNĐ)']]
+            disp.columns = ['Số phòng', 'Loại phòng', 'Khách hàng', 'SĐT', 'Ngày vào', 'Doanh thu dự kiến (VNĐ)']
+            st.dataframe(disp)
             
-    with tab_history:
-        st.subheader("Lịch sử các lượt phòng đã hoàn tất thanh toán")
-        if history_df.empty:
+    with t2:
+        if hist_df.empty:
             st.info("Chưa có lịch sử thanh toán.")
         else:
-            c1, c2 = st.columns(2)
-            with c1:
-                st.write("**Biểu đồ doanh thu thực tế theo ngày**")
-                daily_rev = history_df.groupby('check_out_date')['total_amount'].sum().reset_index()
-                daily_rev.columns = ['Ngày', 'Doanh thu']
-                st.bar_chart(daily_rev.set_index('Ngày'))
-            with c2:
-                st.write("**Doanh thu thực tế theo loại phòng**")
-                type_rev = history_df.groupby('room_type')['total_amount'].sum().reset_index()
-                type_rev.columns = ['Loại phòng', 'Doanh thu']
-                st.dataframe(type_rev)
-                
-            st.dataframe(history_df)
+            ca, cb = st.columns(2)
+            with ca:
+                st.write("**Doanh thu theo ngày**")
+                d_rev = hist_df.groupby('check_out_date')['total_amount'].sum().reset_index()
+                d_rev.columns = ['Ngày', 'Doanh thu']
+                st.bar_chart(d_rev.set_index('Ngày'))
+            with cb:
+                st.write("**Doanh thu theo loại phòng**")
+                t_rev = hist_df.groupby('room_type')['total_amount'].sum().reset_index()
+                t_rev.columns = ['Loại phòng', 'Doanh thu']
+                st.dataframe(t_rev)
+            st.dataframe(hist_df)
 
-    with tab_vip:
-        st.subheader("Tổng doanh thu đóng góp theo từng khách hàng (Đã trả phòng)")
-        if history_df.empty:
-            st.info("Chưa có dữ liệu giao dịch hoàn tất.")
+    with t3:
+        if hist_df.empty:
+            st.info("Chưa có dữ liệu.")
         else:
-            customer_rev = history_df.groupby(['customer_name', 'customer_id', 'phone_number']).agg(
-                so_luot_o=('id', 'count'),
-                tong_chi_tieu=('total_amount', 'sum'),
+            vip_df = hist_df.groupby(['customer_name', 'customer_id', 'phone_number']).agg(
+                so_luot=('id', 'count'),
+                tong_tien=('total_amount', 'sum'),
                 tien_phong=('total_room_cost', 'sum'),
-                tien_dich_vu=('service_cost', 'sum')
-            ).reset_index().sort_values(by='tong_chi_tieu', ascending=False)
+                tien_dv=('service_cost', 'sum')
+            ).reset_index().sort_values(by='tong_tien', ascending=False)
             
-            customer_rev.columns = [
-                'Họ và tên khách hàng', 
-                'CCCD / Hộ chiếu', 
-                'Số điện thoại', 
-                'Số lượt lưu trú', 
-                'Tổng doanh thu đóng góp (VNĐ)', 
-                'Tiền phòng (VNĐ)', 
-                'Tiền dịch vụ (VNĐ)'
-            ]
-            st.dataframe(customer_rev)
+            vip_df.columns = ['Họ tên khách', 'CCCD / Hộ chiếu', 'Số điện thoại', 'Số lượt ở', 'Tổng đóng góp (VNĐ)', 'Tiền phòng (VNĐ)', 'Tiền dịch vụ (VNĐ)']
+            st.dataframe(vip_df)
 
 # ==========================================
 # 6. CẤU HÌNH PHÒNG
@@ -496,27 +413,25 @@ elif menu == "Thống kê doanh thu":
 elif menu == "Cấu hình phòng":
     st.title("⚙️ Cấu hình danh mục phòng - dmelin hotel")
     
-    with st.form("add_room_form"):
+    with st.form("form_add_room"):
         st.subheader("Thêm phòng mới")
-        new_room_num = st.text_input("Số phòng")
-        new_room_type = st.selectbox("Loại phòng", ["Đơn Standard", "Đôi Deluxe", "VIP Suite", "Gia đình"])
-        new_room_price = st.number_input("Giá phòng / đêm (VNĐ)", min_value=100000, value=500000, step=50000)
+        r_num = st.text_input("Số phòng")
+        r_type = st.selectbox("Loại phòng", ["Đơn Standard", "Đôi Deluxe", "VIP Suite", "Gia đình"])
+        r_price = st.number_input("Giá phòng / đêm (VNĐ)", min_value=100000, value=500000, step=50000)
         
-        add_submit = st.form_submit_button("Thêm phòng")
-        if add_submit:
-            if not new_room_num:
+        if st.form_submit_button("Thêm phòng"):
+            if not r_num:
                 st.error("Vui lòng nhập số phòng!")
             else:
                 try:
-                    c = conn.cursor()
-                    c.execute("INSERT INTO rooms VALUES (?, ?, ?, 'Trống')", (new_room_num, new_room_type, new_room_price))
+                    cur = conn.cursor()
+                    cur.execute("INSERT INTO rooms VALUES (?, ?, ?, 'Trống')", (r_num, r_type, r_price))
                     conn.commit()
-                    st.success(f"Đã thêm phòng {new_room_num} thành công!")
+                    st.success(f"Đã thêm phòng {r_num}!")
                     st.rerun()
                 except sqlite3.IntegrityError:
                     st.error("Số phòng này đã tồn tại!")
 
     st.markdown("---")
     st.subheader("Danh sách tất cả các phòng")
-    all_rooms = pd.read_sql_query("SELECT room_number as 'Số phòng', room_type as 'Loại phòng', price_per_night as 'Giá/đêm (VNĐ)', status as 'Trạng thái' FROM rooms", conn)
-    st.dataframe(all_rooms)
+    st.dataframe(pd.read_sql_query("SELECT room_number as 'Số phòng', room_type as 'Loại phòng', price_per_night as 'Giá/đêm (VNĐ)', status as 'Trạng thái' FROM rooms", conn))
