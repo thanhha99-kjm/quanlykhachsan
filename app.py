@@ -12,25 +12,32 @@ st.set_page_config(
     layout="wide"
 )
 
-# Khởi tạo dữ liệu mẫu trong Session State (mô phỏng CSDL)
+# Khởi tạo dữ liệu phòng trong Session State
 if 'rooms' not in st.session_state:
     st.session_state.rooms = [
         {"room_num": "101", "type": "Đơn", "price": 500000, "status": "Trống", "guest_name": "", "check_in": None, "nights": 1},
         {"room_num": "102", "type": "Đơn", "price": 500000, "status": "Có khách", "guest_name": "Nguyễn Văn A", "check_in": date.today(), "nights": 2},
         {"room_num": "103", "type": "Đôi", "price": 800000, "status": "Trống", "guest_name": "", "check_in": None, "nights": 1},
         {"room_num": "201", "type": "Đôi", "price": 800000, "status": "Đang dọn", "guest_name": "", "check_in": None, "nights": 1},
-        {"room_num": "202", "type": "VIP", "price": 1500000, "status": "Có khách", "guest_name": "Tran Thi B", "check_in": date.today(), "nights": 3},
+        {"room_num": "202", "type": "VIP", "price": 1500000, "status": "Có khách", "guest_name": "Trần Thị B", "check_in": date.today(), "nights": 3},
         {"room_num": "203", "type": "VIP", "price": 1500000, "status": "Trống", "guest_name": "", "check_in": None, "nights": 1},
     ]
 
+# Khởi tạo lịch sử doanh thu
 if 'revenue_history' not in st.session_state:
     st.session_state.revenue_history = [
         {"date": "2026-09-27", "amount": 2500000, "room": "102"},
         {"date": "2026-09-28", "amount": 1500000, "room": "202"},
     ]
 
+# Khởi tạo lịch sử trò chuyện AI Chatbot
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = [
+        {"role": "assistant", "content": "Xin chào! Tôi là Trợ lý AI Khách sạn. Bạn cần trợ giúp thông tin phòng hay dịch vụ gì ạ?"}
+    ]
+
 # ---------------------------------------------------------
-# SIDEBAR NAVIGATION
+# SIDEBAR NAVIGATION & AI CHATBOT INTEGRATION
 # ---------------------------------------------------------
 st.sidebar.image("https://img.icons8.com/color/96/hotel-check-in.png", width=80)
 st.sidebar.title("Quản Lý Khách Sạn")
@@ -41,13 +48,63 @@ page = st.sidebar.radio("Danh mục chức năng", [
     "📊 Báo cáo & Thống kê"
 ])
 
+st.sidebar.divider()
+
+# AI Chatbot trợ lý hỗ trợ ở Sidebar
+st.sidebar.subheader("🤖 Trợ Lý AI Khách Sạn")
+
+# Hiển thị lịch sử trò chuyện
+chat_container = st.sidebar.container(height=280)
+with chat_container:
+    for msg in st.session_state.chat_history:
+        if msg["role"] == "user":
+            st.chat_message("user").write(msg["content"])
+        else:
+            st.chat_message("assistant").write(msg["content"])
+
+# Hàm xử lý câu hỏi AI dựa trên dữ liệu thực tế của khách sạn
+def get_ai_response(user_query):
+    query = user_query.lower()
+    df_rooms = pd.DataFrame(st.session_state.rooms)
+    
+    if "trống" in query or "phòng trống" in query:
+        empty_rooms = df_rooms[df_rooms['status'] == 'Trống']
+        if not empty_rooms.empty:
+            room_list = ", ".join([f"Phòng {r['room_num']} ({r['type']})" for _, r in empty_rooms.iterrows()])
+            return f"Hiện tại khách sạn đang có {len(empty_rooms)} phòng trống: {room_list}."
+        return "Hiện tại khách sạn đã hết phòng trống ạ."
+        
+    elif "giá" in query or "nhiêu tiền" in query or "chi phí" in query:
+        types = df_rooms[['type', 'price']].drop_duplicates()
+        price_info = "\n".join([f"- Phòng {row['type']}: {row['price']:,} VNĐ/đêm" for _, row in types.iterrows()])
+        return f"Bảng giá các hạng phòng hiện tại:\n{price_info}"
+        
+    elif "wifi" in query or "mật khẩu" in query:
+        return "Mật khẩu Wifi khách sạn là: Hotel_VIP_2026 (Tốc độ cao miễn phí)."
+        
+    elif "ăn sáng" in query or "buffet" in query or "nhà hàng" in query:
+        return "Nhà hàng tầng 1 phục vụ Buffet sáng từ 6:00 AM - 9:30 AM hàng ngày ạ."
+        
+    elif "check-in" in query or "check-out" in query or "giờ nhận" in query:
+        return "Giờ Check-in chuẩn là 14:00 và Check-out là 12:00 trưa hôm sau."
+        
+    else:
+        return "Dạ, tôi đã ghi nhận thông tin. Vui lòng liên hệ Lễ tân qua máy bàn số 0 để được hỗ trợ chi tiết nhất!"
+
+# Ô nhập câu hỏi cho khách / nhân viên
+user_input = st.sidebar.chat_input("Hỏi AI về phòng, giá, dịch vụ...")
+if user_input:
+    st.session_state.chat_history.append({"role": "user", "content": user_input})
+    ai_reply = get_ai_response(user_input)
+    st.session_state.chat_history.append({"role": "assistant", "content": ai_reply})
+    st.rerun()
+
 # ---------------------------------------------------------
-# PAGE 1: SƠ ĐỒ PHÒNG
+# PAGE 1: SƠ ĐỒ PHÒNG & TRẠNG THÁI
 # ---------------------------------------------------------
 if page == "📌 Sơ đồ phòng & Trạng thái":
     st.title("📌 Sơ Đồ Phòng & Trạng Thái Trực Quan")
     
-    # Chỉ số KPI nhanh
     df_rooms = pd.DataFrame(st.session_state.rooms)
     total_rooms = len(df_rooms)
     occupied = len(df_rooms[df_rooms['status'] == 'Có khách'])
@@ -56,16 +113,14 @@ if page == "📌 Sơ đồ phòng & Trạng thái":
     
     col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
     col_kpi1.metric("Tổng số phòng", total_rooms)
-    col_kpi2.metric("Đang có khách", occupied, delta=f"{int(occupied/total_rooms*100)}% công suất")
+    col_kpi2.metric("Đang có khách", occupied, delta=f"{int(occupied/total_rooms*100) if total_rooms > 0 else 0}% công suất")
     col_kpi3.metric("Phòng trống", available)
     col_kpi4.metric("Đang dọn dẹp", cleaning)
     
     st.divider()
     
-    # Bộ lọc trạng thái
     status_filter = st.selectbox("Lọc theo trạng thái", ["Tất cả", "Trống", "Có khách", "Đang dọn"])
     
-    # Lưới hiển thị các phòng
     cols = st.columns(3)
     filtered_rooms = st.session_state.rooms if status_filter == "Tất cả" else [r for r in st.session_state.rooms if r['status'] == status_filter]
     
@@ -77,7 +132,7 @@ if page == "📌 Sơ đồ phòng & Trạng thái":
 
     for idx, room in enumerate(filtered_rooms):
         with cols[idx % 3]:
-            bg_color = color_map.get(room['status'], "#ffffff")
+            bg_color = color_map.get(room['status'], "#6c757d")
             text_color = "#ffffff" if room['status'] in ["Trống", "Có khách"] else "#000000"
             
             st.markdown(
@@ -150,13 +205,11 @@ elif page == "🔑 Check-in / Check-out":
             """)
             
             if st.button("Xác nhận thanh toán & Check-out"):
-                # Lưu lịch sử doanh thu
                 st.session_state.revenue_history.append({
                     "date": date.today().strftime("%Y-%m-%d"),
                     "amount": total_bill,
                     "room": selected_out_room
                 })
-                # Cập nhật trạng thái phòng thành Đang dọn
                 for room in st.session_state.rooms:
                     if room['room_num'] == selected_out_room:
                         room['status'] = "Đang dọn"
@@ -169,7 +222,7 @@ elif page == "🔑 Check-in / Check-out":
         else:
             st.info("Hiện không có phòng nào đang có khách.")
 
-    # Tab Đổi trạng thái (Ví dụ: Dọn phòng xong)
+    # Tab Cập nhật trạng thái
     with tab3:
         st.subheader("Cập nhật trạng thái Vệ sinh/Dọn dẹp")
         room_to_update = st.selectbox("Chọn phòng cần cập nhật", [r['room_num'] for r in st.session_state.rooms])
@@ -189,7 +242,6 @@ elif page == "🔑 Check-in / Check-out":
 elif page == "⚙️ Quản lý danh mục phòng":
     st.title("⚙️ Quản Lý Sơ Đồ Danh Mục Phòng")
     
-    # Hiển thị bảng hiện tại
     df_rooms = pd.DataFrame(st.session_state.rooms)
     st.dataframe(df_rooms[['room_num', 'type', 'price', 'status']], use_container_width=True)
     
