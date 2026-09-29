@@ -66,17 +66,50 @@ def init_db():
     ''')
     conn.commit()
 
-    # Thêm dữ liệu phòng mẫu nếu bảng trống
+    # 1. Khởi tạo danh sách phòng
     c.execute("SELECT COUNT(*) FROM rooms")
     if c.fetchone()[0] == 0:
         sample_rooms = [
             ('101', 'Đơn Standard', 500000, 'Trống'),
-            ('102', 'Đơn Standard', 500000, 'Trống'),
+            ('102', 'Đơn Standard', 500000, 'Đã đặt'),  # Phòng đang có khách
             ('201', 'Đôi Deluxe', 800000, 'Trống'),
-            ('202', 'Đôi Deluxe', 800000, 'Trống'),
+            ('202', 'Đôi Deluxe', 800000, 'Đã đặt'),   # Phòng đang có khách
             ('301', 'VIP Suite', 1500000, 'Trống'),
         ]
         c.executemany("INSERT INTO rooms VALUES (?, ?, ?, ?)", sample_rooms)
+        conn.commit()
+
+    # 2. Khởi tạo dữ liệu ĐÃ Ở (3 lượt) và ĐANG Ở (2 lượt)
+    c.execute("SELECT COUNT(*) FROM bookings")
+    if c.fetchone()[0] == 0:
+        sample_bookings = [
+            # --- 3 PHÒNG ĐÃ Ở & CHECK-OUT HOÀN TẤT ---
+            ('101', 'Nguyễn Văn An', '079201001234', '0903123456', 'an.nguyen@gmail.com', 'Việt Nam', 'Yêu cầu phòng yên tĩnh', '2026-09-20', '2026-09-22', 'Đã trả phòng', 1000000, 30000, 1030000),
+            ('201', 'Trần Thị Bích', '079198005678', '0918987654', 'bich.tran@yahoo.com', 'Việt Nam', 'Khách VIP đi công tác', '2026-09-23', '2026-09-26', 'Đã trả phòng', 2400000, 150000, 2550000),
+            ('301', 'Michael Smith', 'C987654321', '0933112233', 'm.smith@outlook.com', 'Mỹ', 'Khách hàng thân thiết', '2026-09-26', '2026-09-28', 'Đã trả phòng', 3000000, 200000, 3200000),
+            
+            # --- 2 PHÒNG ĐANG Ở / ĐÃ ĐẶT (Đang lưu trú tại khách sạn) ---
+            ('102', 'Lê Hoàng Nam', '079195009988', '0977889900', 'nam.le@gmail.com', 'Việt Nam', 'Gọi báo thức 7h sáng', '2026-09-28', '2026-09-30', 'Đang ở', 0, 0, 0),
+            ('202', 'Phạm Minh Khoa', '079192003344', '0966554433', 'khoa.pham@gmail.com', 'Việt Nam', 'Thêm 1 bộ khăn tắm', '2026-09-27', '2026-09-30', 'Đang ở', 0, 0, 0)
+        ]
+        c.executemany('''
+            INSERT INTO bookings (
+                room_number, customer_name, customer_id, phone_number, email,
+                nationality, notes, check_in_date, check_out_date, status,
+                total_room_cost, service_cost, total_amount
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', sample_bookings)
+        
+        # Thêm dịch vụ cho các phòng
+        sample_services = [
+            (1, 'Nước suối', 15000, 2, 30000),
+            (2, 'Cà phê', 30000, 3, 90000),
+            (2, 'Giặt ủi', 60000, 1, 60000),
+            (3, 'Nước ép hoa quả', 50000, 4, 200000),
+            (4, 'Nước suối', 15000, 2, 30000),  # Dịch vụ phòng 102 đang ở
+            (5, 'Mì ly', 20000, 2, 40000)      # Dịch vụ phòng 202 đang ở
+        ]
+        c.executemany("INSERT INTO services (booking_id, service_name, price, quantity, total) VALUES (?, ?, ?, ?, ?)", sample_services)
         conn.commit()
 
 init_db()
@@ -372,7 +405,6 @@ elif menu == "Thống kê doanh thu":
         WHERE b.status = 'Đang ở'
     ''', conn)
     
-    # Tạm tính doanh thu phòng đang có khách ở
     active_temp_revenue = 0
     if not active_df.empty:
         temp_rev_list = []
@@ -383,7 +415,6 @@ elif menu == "Thống kê doanh thu":
             if days <= 0:
                 days = 1
             
-            # Tính tiền dịch vụ hiện tại
             srv_tot_df = pd.read_sql_query("SELECT SUM(total) as srv_total FROM services WHERE booking_id = ?", conn, params=(row['id'],))
             srv_cost = srv_tot_df.iloc[0]['srv_total'] if srv_tot_df.iloc[0]['srv_total'] is not None else 0
             
@@ -407,8 +438,8 @@ elif menu == "Thống kê doanh thu":
     st.markdown("---")
     
     tab_active, tab_history, tab_vip = st.tabs([
-        "🔴 Phòng đang có khách ở", 
-        "🟢 Lịch sử phòng đã ở & trả phòng", 
+        "🔴 Phòng đang ở / Đã đặt (2 phòng)", 
+        "🟢 Phòng đã ở & Check-out (3 phòng)", 
         "👑 Doanh thu theo Khách hàng (VIP)"
     ])
     
@@ -425,7 +456,7 @@ elif menu == "Thống kê doanh thu":
             st.dataframe(display_active)
             
     with tab_history:
-        st.subheader("Lịch sử tất cả lượt phòng đã hoàn tất thanh toán")
+        st.subheader("Lịch sử các lượt phòng đã hoàn tất thanh toán")
         if history_df.empty:
             st.info("Chưa có lịch sử thanh toán.")
         else:
