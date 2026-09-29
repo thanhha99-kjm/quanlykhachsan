@@ -23,7 +23,7 @@ def init_db():
     conn = get_connection()
     c = conn.cursor()
     
-    # Bảng danh sách phòng
+    # 1. Bảng danh sách phòng
     c.execute('''
         CREATE TABLE IF NOT EXISTS rooms (
             room_number TEXT PRIMARY KEY,
@@ -33,7 +33,7 @@ def init_db():
         )
     ''')
     
-    # Bảng đặt phòng / lưu trú
+    # 2. Bảng đặt phòng / lưu trú
     c.execute('''
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +53,7 @@ def init_db():
         )
     ''')
     
-    # Bảng dịch vụ sử dụng
+    # 3. Bảng dịch vụ sử dụng
     c.execute('''
         CREATE TABLE IF NOT EXISTS services (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,7 +66,7 @@ def init_db():
     ''')
     conn.commit()
 
-    # Khởi tạo danh sách phòng mẫu
+    # Thêm phòng mẫu nếu bảng phòng trống
     c.execute("SELECT COUNT(*) FROM rooms")
     if c.fetchone()[0] == 0:
         sample_rooms = [
@@ -79,7 +79,7 @@ def init_db():
         c.executemany("INSERT INTO rooms VALUES (?, ?, ?, ?)", sample_rooms)
         conn.commit()
 
-    # Khởi tạo dữ liệu mẫu 3 phòng ĐÃ Ở và 2 phòng ĐANG Ở
+    # Thêm dữ liệu lưu trú mẫu nếu bảng đặt phòng trống (3 lượt đã ở, 2 lượt đang ở)
     c.execute("SELECT COUNT(*) FROM bookings")
     if c.fetchone()[0] == 0:
         sample_bookings = [
@@ -114,7 +114,6 @@ conn = get_connection()
 # ==========================================
 # THANH ĐIỀU HƯỚNG (SIDEBAR)
 # ==========================================
-# Sửa chuẩn cho Sidebar Image (không dùng use_column_width hay use_container_width)
 if os.path.exists(IMAGE_PATH):
     st.sidebar.image(IMAGE_PATH)
 else:
@@ -165,23 +164,21 @@ if menu == "Sơ đồ phòng":
         col = cols[index % 3]
         with col:
             status_color = "🔴" if row['status'] == 'Đã đặt' else "🟢"
-            # Sửa chuẩn cho container thẻ phòng
-            with st.container():
-                st.markdown("---")
-                st.subheader(f"Phòng {row['room_number']} {status_color}")
-                st.write(f"**Loại:** {row['room_type']}")
-                st.write(f"**Giá:** {row['price_per_night']:,} VNĐ/đêm")
-                st.write(f"**Trạng thái:** {row['status']}")
-                
-                if row['status'] == 'Đã đặt':
-                    b_df = pd.read_sql_query(
-                        "SELECT customer_name, phone_number, check_in_date FROM bookings WHERE room_number = ? AND status = 'Đang ở'",
-                        conn, params=(row['room_number'],)
-                    )
-                    if not b_df.empty:
-                        st.caption(f"👤 Khách: {b_df.iloc[0]['customer_name']}")
-                        st.caption(f"📞 SĐT: {b_df.iloc[0]['phone_number']}")
-                        st.caption(f"📅 Nhận: {b_df.iloc[0]['check_in_date']}")
+            st.markdown(f"### Phòng {row['room_number']} {status_color}")
+            st.write(f"**Loại:** {row['room_type']}")
+            st.write(f"**Giá:** {row['price_per_night']:,} VNĐ/đêm")
+            st.write(f"**Trạng thái:** {row['status']}")
+            
+            if row['status'] == 'Đã đặt':
+                b_df = pd.read_sql_query(
+                    "SELECT customer_name, phone_number, check_in_date FROM bookings WHERE room_number = ? AND status = 'Đang ở'",
+                    conn, params=(row['room_number'],)
+                )
+                if not b_df.empty:
+                    st.caption(f"👤 Khách: {b_df.iloc[0]['customer_name']}")
+                    st.caption(f"📞 SĐT: {b_df.iloc[0]['phone_number']}")
+                    st.caption(f"📅 Nhận: {b_df.iloc[0]['check_in_date']}")
+            st.markdown("---")
 
 # ==========================================
 # 2. CHECK-IN (NHẬN PHÒNG)
@@ -434,8 +431,8 @@ elif menu == "Thống kê doanh thu":
     st.markdown("---")
     
     tab_active, tab_history, tab_vip = st.tabs([
-        "🔴 Phòng đang ở / Đã đặt (2 phòng)", 
-        "🟢 Phòng đã ở & Check-out (3 phòng)", 
+        "🔴 Phòng đang ở / Đã đặt", 
+        "🟢 Phòng đã ở & Check-out", 
         "👑 Doanh thu theo Khách hàng (VIP)"
     ])
     
