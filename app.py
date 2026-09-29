@@ -6,7 +6,7 @@ import streamlit as st
 from PIL import Image
 
 # ==========================================
-# CẤU HÌNH TRANG & DATABASE
+# CẤU HÌNH TRANG VÀ KẾT NỐI DATABASE
 # ==========================================
 st.set_page_config(
     page_title="dmelin hotel - Quản Lý Khách Sạn",
@@ -16,8 +16,8 @@ st.set_page_config(
 
 IMAGE_FILE = "images (1).jpg"
 
-# Hàm đọc ảnh an toàn chống lỗi dòng 92 & 111
 def load_image_safe(image_path):
+    """Đọc ảnh an toàn qua PIL để tránh lỗi tương thích phiên bản Streamlit"""
     if os.path.exists(image_path):
         try:
             return Image.open(image_path)
@@ -33,7 +33,7 @@ def init_db():
     conn = get_db()
     c = conn.cursor()
     
-    # 1. Bảng phòng
+    # Bảng danh mục phòng
     c.execute('''
         CREATE TABLE IF NOT EXISTS rooms (
             room_number TEXT PRIMARY KEY,
@@ -43,7 +43,7 @@ def init_db():
         )
     ''')
     
-    # 2. Bảng lưu trú / đặt phòng
+    # Bảng lượt lưu trú / đặt phòng
     c.execute('''
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -63,7 +63,7 @@ def init_db():
         )
     ''')
     
-    # 3. Bảng dịch vụ
+    # Bảng dịch vụ phát sinh
     c.execute('''
         CREATE TABLE IF NOT EXISTS services (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,7 +76,7 @@ def init_db():
     ''')
     conn.commit()
 
-    # Tạo dữ liệu phòng mẫu nếu trống
+    # Nạp dữ liệu phòng mẫu nếu bảng trống
     c.execute("SELECT COUNT(*) FROM rooms")
     if c.fetchone()[0] == 0:
         rooms_data = [
@@ -89,15 +89,15 @@ def init_db():
         c.executemany("INSERT INTO rooms VALUES (?, ?, ?, ?)", rooms_data)
         conn.commit()
 
-    # Tạo dữ liệu khách mẫu nếu trống (3 phòng đã trả + 2 phòng đang ở)
+    # Nạp sẵn dữ liệu khách đã đặt & lưu trú mẫu nếu bảng trống
     c.execute("SELECT COUNT(*) FROM bookings")
     if c.fetchone()[0] == 0:
         bookings_data = [
             ('101', 'Nguyễn Văn An', '079201001234', '0903123456', 'an.nguyen@gmail.com', 'Việt Nam', 'Phòng yên tĩnh', '2026-09-20', '2026-09-22', 'Đã trả phòng', 1000000, 30000, 1030000),
             ('201', 'Trần Thị Bích', '079198005678', '0918987654', 'bich.tran@yahoo.com', 'Việt Nam', 'Khách VIP', '2026-09-23', '2026-09-26', 'Đã trả phòng', 2400000, 150000, 2550000),
             ('301', 'Michael Smith', 'C987654321', '0933112233', 'm.smith@outlook.com', 'Mỹ', 'Khách quen', '2026-09-26', '2026-09-28', 'Đã trả phòng', 3000000, 200000, 3200000),
-            ('102', 'Lê Hoàng Nam', '079195009988', '0977889900', 'nam.le@gmail.com', 'Việt Nam', 'Báo thức 7h', '2026-09-28', '2026-09-30', 'Đang ở', 0, 0, 0),
-            ('202', 'Phạm Minh Khoa', '079192003344', '0966554433', 'khoa.pham@gmail.com', 'Việt Nam', 'Thêm khăn tắm', '2026-09-27', '2026-09-30', 'Đang ở', 0, 0, 0)
+            ('102', 'Lê Hoàng Nam', '079195009988', '0977889900', 'nam.le@gmail.com', 'Việt Nam', 'Báo thức 7h sáng', '2026-09-28', '2026-09-30', 'Đang ở', 0, 0, 0),
+            ('202', 'Phạm Minh Khoa', '079192003344', '0966554433', 'khoa.pham@gmail.com', 'Việt Nam', 'Thêm bộ khăn tắm', '2026-09-27', '2026-09-30', 'Đang ở', 0, 0, 0)
         ]
         c.executemany('''
             INSERT INTO bookings (
@@ -122,11 +122,10 @@ init_db()
 conn = get_db()
 
 # ==========================================
-# SIDEBAR NAVIGATION
+# THANH ĐIỀU HƯỚNG (SIDEBAR)
 # ==========================================
 img_obj = load_image_safe(IMAGE_FILE)
 
-# Dòng 92 đã sửa: Truyền trực tiếp đối tượng PIL Image không kèm thuộc tính bị lỗi
 if img_obj:
     st.sidebar.image(img_obj)
 
@@ -149,14 +148,13 @@ menu = st.sidebar.radio(
 if menu == "Sơ đồ phòng":
     st.title("📌 Sơ đồ & Trạng thái phòng - dmelin hotel")
     
-    # Dòng 111 đã sửa: Sử dụng đối tượng PIL Image
     if img_obj:
         c_img, c_txt = st.columns([1, 2])
         with c_img:
             st.image(img_obj)
         with c_txt:
             st.subheader("Chào mừng đến với dmelin hotel")
-            st.write("Hệ thống quản lý phòng, lưu trú và doanh thu trực quan.")
+            st.write("Hệ thống quản lý phòng, lưu trú và doanh thu thời gian thực.")
     
     rooms_df = pd.read_sql_query("SELECT * FROM rooms", conn)
     
@@ -192,7 +190,7 @@ if menu == "Sơ đồ phòng":
             st.markdown("---")
 
 # ==========================================
-# 2. CHECK-IN
+# 2. CHECK-IN (NHẬN PHÒNG)
 # ==========================================
 elif menu == "Check-in (Nhận phòng)":
     st.title("🔑 Lập phiếu nhận phòng - dmelin hotel")
@@ -205,7 +203,7 @@ elif menu == "Check-in (Nhận phòng)":
         r_options = [f"{r['room_number']} - {r['room_type']} ({r['price_per_night']:,} VNĐ)" for _, r in empty_rooms.iterrows()]
         
         with st.form("form_checkin"):
-            st.subheader("1. Thông tin phòng")
+            st.subheader("1. Chọn phòng & Thời gian")
             sel_room = st.selectbox("Chọn phòng trống", r_options)
             
             col_a, col_b = st.columns(2)
@@ -213,7 +211,7 @@ elif menu == "Check-in (Nhận phòng)":
             d_out = col_b.date_input("Ngày trả dự kiến", datetime.date.today() + datetime.timedelta(days=1))
             
             st.subheader("2. Thông tin khách hàng")
-            c_name = st.text_input("Họ và tên khách *")
+            c_name = st.text_input("Họ và tên khách hàng *")
             c_id = st.text_input("Số CCCD / Hộ chiếu *")
             
             ca, cb, cc = st.columns(3)
@@ -227,9 +225,9 @@ elif menu == "Check-in (Nhận phòng)":
             
             if btn_submit:
                 if not c_name or not c_id:
-                    st.error("Vui lòng nhập tên và số CCCD!")
+                    st.error("Vui lòng điền họ tên và số CCCD!")
                 elif d_out <= d_in:
-                    st.error("Ngày trả phòng phải sau ngày nhận!")
+                    st.error("Ngày trả phòng phải sau ngày nhận phòng!")
                 else:
                     r_num = sel_room.split(" - ")[0]
                     cur = conn.cursor()
@@ -246,7 +244,7 @@ elif menu == "Check-in (Nhận phòng)":
                     st.rerun()
 
 # ==========================================
-# 3. DỊCH VỤ & CHECK-OUT
+# 3. DỊCH VỤ & CHECK-OUT (TRẢ PHÒNG)
 # ==========================================
 elif menu == "Dịch vụ & Check-out":
     st.title("🛠️ Dịch vụ phát sinh & Thanh toán")
@@ -264,7 +262,7 @@ elif menu == "Dịch vụ & Check-out":
         
         with tab_srv:
             with st.form("form_srv"):
-                s_name = st.text_input("Tên dịch vụ", value="Nước suối")
+                s_name = st.text_input("Tên dịch vụ / Mặt hàng", value="Nước suối")
                 s_price = st.number_input("Đơn giá (VNĐ)", min_value=0, value=15000, step=5000)
                 s_qty = st.number_input("Số lượng", min_value=1, value=1, step=1)
                 
@@ -274,7 +272,7 @@ elif menu == "Dịch vụ & Check-out":
                     cur.execute("INSERT INTO services (booking_id, service_name, price, quantity, total) VALUES (?, ?, ?, ?, ?)",
                                 (sel_id, s_name, s_price, s_qty, tot))
                     conn.commit()
-                    st.success(f"Đã thêm {s_qty}x {s_name}.")
+                    st.success(f"Đã thêm {s_qty}x {s_name} vào hóa đơn.")
             
             srv_df = pd.read_sql_query("SELECT service_name as 'Dịch vụ', price as 'Đơn giá', quantity as 'Số lượng', total as 'Thành tiền' FROM services WHERE booking_id = ?", conn, params=(sel_id,))
             if not srv_df.empty:
@@ -314,7 +312,7 @@ elif menu == "Dịch vụ & Check-out":
                 cur.execute("UPDATE rooms SET status = 'Trống' WHERE room_number = ?", (b_info['room_number'],))
                 conn.commit()
                 st.balloons()
-                st.success("Thanh toán thành công!")
+                st.success("Thanh toán hoàn tất! Phòng đã đưa về trạng thái trống.")
                 st.rerun()
 
 # ==========================================
@@ -323,7 +321,7 @@ elif menu == "Dịch vụ & Check-out":
 elif menu == "Quản lý khách lưu trú":
     st.title("📇 Hồ sơ khách lưu trú - dmelin hotel")
     
-    kw = st.text_input("🔍 Tìm theo Tên, CCCD hoặc SĐT")
+    kw = st.text_input("🔍 Tìm kiếm theo Tên, CCCD hoặc SĐT")
     sql = '''
         SELECT 
             id as 'Mã Phiếu', customer_name as 'Họ tên', customer_id as 'CCCD/Hộ chiếu',
@@ -373,18 +371,18 @@ elif menu == "Thống kê doanh thu":
     srv_rev = hist_df['service_cost'].sum() if not hist_df.empty else 0
     
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("THỰC THU (Đã check-out)", f"{real_rev:,} VNĐ")
-    m2.metric("DỰ KIẾN (Đang lưu trú)", f"{est_rev:,} VNĐ")
+    m1.metric("THỰC THU (Check-out)", f"{real_rev:,} VNĐ")
+    m2.metric("DỰ KIẾN (Đang ở)", f"{est_rev:,} VNĐ")
     m3.metric("Doanh thu tiền phòng", f"{room_rev:,} VNĐ")
     m4.metric("Doanh thu dịch vụ", f"{srv_rev:,} VNĐ")
     
     st.markdown("---")
     
-    t1, t2, t3 = st.tabs(["🔴 Phòng đang lưu trú", "🟢 Lịch sử đã checkout", "👑 Doanh thu theo Khách hàng VIP"])
+    t1, t2, t3 = st.tabs(["🔴 Phòng đang ở / Đã đặt", "🟢 Phòng đã trả", "👑 Doanh thu theo Khách hàng (VIP)"])
     
     with t1:
         if act_df.empty:
-            st.info("Không có phòng nào đang ở.")
+            st.info("Hiện không có phòng nào đang có khách lưu trú.")
         else:
             disp = act_df[['room_number', 'room_type', 'customer_name', 'phone_number', 'check_in_date', 'Doanh thu tạm tính (VNĐ)']]
             disp.columns = ['Số phòng', 'Loại phòng', 'Khách hàng', 'SĐT', 'Ngày vào', 'Doanh thu dự kiến (VNĐ)']
@@ -409,7 +407,7 @@ elif menu == "Thống kê doanh thu":
 
     with t3:
         if hist_df.empty:
-            st.info("Chưa có dữ liệu.")
+            st.info("Chưa có dữ liệu thanh toán.")
         else:
             vip_df = hist_df.groupby(['customer_name', 'customer_id', 'phone_number']).agg(
                 so_luot=('id', 'count'),
