@@ -33,7 +33,7 @@ def init_db():
         )
     ''')
     
-    # Bảng đặt phòng / lưu trú
+    # Bảng đặt phòng / lưu trú (Lưu đầy đủ thông tin khách & doanh thu)
     c.execute('''
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,9 +85,8 @@ conn = get_connection()
 # ==========================================
 # THANH ĐIỀU HƯỚNG (SIDEBAR)
 # ==========================================
-# Sửa lỗi hiển thị ảnh ở Sidebar (dòng 89) bằng use_container_width=True
 if os.path.exists(IMAGE_PATH):
-    st.sidebar.image(IMAGE_PATH, use_container_width=True)
+    st.sidebar.image(IMAGE_PATH)
 else:
     st.sidebar.warning(f"⚠️ Chưa thấy file '{IMAGE_PATH}' trong thư mục.")
 
@@ -113,7 +112,7 @@ if menu == "Sơ đồ phòng":
     if os.path.exists(IMAGE_PATH):
         col_img, col_info = st.columns([1, 2])
         with col_img:
-            st.image(IMAGE_PATH, caption="Khách sạn", use_container_width=True)
+            st.image(IMAGE_PATH, caption="Khách sạn")
         with col_info:
             st.subheader("Chào mừng đến với Hệ thống Quản lý Khách sạn")
             st.caption("Theo dõi tình trạng phòng, lượt lưu trú và dịch vụ thời gian thực.")
@@ -259,7 +258,7 @@ elif menu == "Dịch vụ & Check-out":
             srv_list = pd.read_sql_query("SELECT service_name as 'Tên dịch vụ', price as 'Đơn giá', quantity as 'Số lượng', total as 'Thành tiền' FROM services WHERE booking_id = ?", conn, params=(selected_booking_id,))
             if not srv_list.empty:
                 st.write("**Dịch vụ đã sử dụng:**")
-                st.dataframe(srv_list, use_container_width=True)
+                st.dataframe(srv_list)
         
         with tab2:
             st.subheader("Chi tiết hóa đơn & Trả phòng")
@@ -313,7 +312,7 @@ elif menu == "Dịch vụ & Check-out":
 # 4. QUẢN LÝ KHÁCH LƯU TRÚ
 # ==========================================
 elif menu == "Quản lý khách lưu trú":
-    st.title("📇 Quản lý dữ liệu khách lưu trú")
+    st.title("📇 Hồ sơ khách lưu trú & Doanh thu đóng góp")
     
     search_keyword = st.text_input("🔍 Tìm kiếm theo Tên, CCCD hoặc Số điện thoại")
     
@@ -328,6 +327,7 @@ elif menu == "Quản lý khách lưu trú":
             room_number as 'Phòng',
             check_in_date as 'Ngày vào',
             check_out_date as 'Ngày ra',
+            total_amount as 'Doanh thu phát sinh (VNĐ)',
             status as 'Trạng thái'
         FROM bookings
     '''
@@ -342,17 +342,17 @@ elif menu == "Quản lý khách lưu trú":
     if guests_df.empty:
         st.info("Chưa tìm thấy dữ liệu khách lưu trú phù hợp.")
     else:
-        st.dataframe(guests_df, use_container_width=True)
+        st.dataframe(guests_df)
 
 # ==========================================
 # 5. THỐNG KÊ DOANH THU
 # ==========================================
 elif menu == "Thống kê doanh thu":
-    st.title("📊 Thống kê doanh thu chi tiết")
+    st.title("📊 Thống kê doanh thu kết hợp dữ liệu khách hàng")
     
     history_df = pd.read_sql_query('''
         SELECT 
-            b.id, b.room_number, r.room_type, b.customer_name, 
+            b.id, b.room_number, r.room_type, b.customer_name, b.customer_id, b.phone_number,
             b.check_in_date, b.check_out_date, 
             b.total_room_cost, b.service_cost, b.total_amount 
         FROM bookings b
@@ -367,29 +367,46 @@ elif menu == "Thống kê doanh thu":
         total_rev = history_df['total_amount'].sum()
         total_room_rev = history_df['total_room_cost'].sum()
         total_srv_rev = history_df['service_cost'].sum()
+        total_guests = history_df['customer_id'].nunique()
         
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Tổng doanh thu tích lũy", f"{total_rev:,} VNĐ")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Tổng doanh thu", f"{total_rev:,} VNĐ")
         m2.metric("Doanh thu tiền phòng", f"{total_room_rev:,} VNĐ")
         m3.metric("Doanh thu dịch vụ", f"{total_srv_rev:,} VNĐ")
+        m4.metric("Tổng số khách thanh toán", f"{total_guests} khách")
         
         st.markdown("---")
         
-        c1, c2 = st.columns(2)
-        with c1:
-            st.subheader("Doanh thu theo ngày trả phòng")
-            daily_rev = history_df.groupby('check_out_date')['total_amount'].sum().reset_index()
-            daily_rev.columns = ['Ngày', 'Doanh thu']
-            st.bar_chart(daily_rev.set_index('Ngày'))
+        tab_rev1, tab_rev2 = st.tabs(["👑 Khách hàng đóng góp cao nhất (VIP)", "📈 Biểu đồ doanh thu"])
+        
+        with tab_rev1:
+            st.subheader("Top khách hàng mang lại doanh thu cao nhất")
+            customer_rev = history_df.groupby(['customer_name', 'customer_id', 'phone_number']).agg(
+                so_luot_o=('id', 'count'),
+                tong_chi_tieu=('total_amount', 'sum'),
+                tien_phong=('total_room_cost', 'sum'),
+                tien_dich_vu=('service_cost', 'sum')
+            ).reset_index().sort_values(by='tong_chi_tieu', ascending=False)
             
-        with c2:
-            st.subheader("Doanh thu theo loại phòng")
-            type_rev = history_df.groupby('room_type')['total_amount'].sum().reset_index()
-            type_rev.columns = ['Loại phòng', 'Doanh thu']
-            st.dataframe(type_rev, use_container_width=True)
+            customer_rev.columns = ['Họ tên', 'CCCD/Hộ chiếu', 'SĐT', 'Số lượt lưu trú', 'Tổng chi tiêu (VNĐ)', 'Tiền phòng (VNĐ)', 'Tiền dịch vụ (VNĐ)']
+            st.dataframe(customer_rev)
             
-        st.subheader("Nhật ký giao dịch hoàn tất")
-        st.dataframe(history_df, use_container_width=True)
+        with tab_rev2:
+            c1, c2 = st.columns(2)
+            with c1:
+                st.subheader("Doanh thu theo ngày trả phòng")
+                daily_rev = history_df.groupby('check_out_date')['total_amount'].sum().reset_index()
+                daily_rev.columns = ['Ngày', 'Doanh thu']
+                st.bar_chart(daily_rev.set_index('Ngày'))
+                
+            with c2:
+                st.subheader("Doanh thu theo loại phòng")
+                type_rev = history_df.groupby('room_type')['total_amount'].sum().reset_index()
+                type_rev.columns = ['Loại phòng', 'Doanh thu']
+                st.dataframe(type_rev)
+
+        st.subheader("Nhật ký chi tiết các giao dịch hoàn tất")
+        st.dataframe(history_df)
 
 # ==========================================
 # 6. CẤU HÌNH PHÒNG
@@ -420,4 +437,4 @@ elif menu == "Cấu hình phòng":
     st.markdown("---")
     st.subheader("Danh sách tất cả các phòng")
     all_rooms = pd.read_sql_query("SELECT room_number as 'Số phòng', room_type as 'Loại phòng', price_per_night as 'Giá/đêm (VNĐ)', status as 'Trạng thái' FROM rooms", conn)
-    st.dataframe(all_rooms, use_container_width=True)
+    st.dataframe(all_rooms)
