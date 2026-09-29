@@ -33,7 +33,7 @@ def init_db():
         )
     ''')
     
-    # Bảng đặt phòng / lưu trú (Đã bổ sung SĐT, Email, Quốc tịch, Ghi chú)
+    # Bảng đặt phòng / lưu trú
     c.execute('''
         CREATE TABLE IF NOT EXISTS bookings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,8 +85,9 @@ conn = get_connection()
 # ==========================================
 # THANH ĐIỀU HƯỚNG (SIDEBAR)
 # ==========================================
+# Sửa lỗi hiển thị ảnh ở Sidebar (dòng 89) bằng use_container_width=True
 if os.path.exists(IMAGE_PATH):
-    st.sidebar.image(IMAGE_PATH, use_column_width=True)
+    st.sidebar.image(IMAGE_PATH, use_container_width=True)
 else:
     st.sidebar.warning(f"⚠️ Chưa thấy file '{IMAGE_PATH}' trong thư mục.")
 
@@ -112,7 +113,7 @@ if menu == "Sơ đồ phòng":
     if os.path.exists(IMAGE_PATH):
         col_img, col_info = st.columns([1, 2])
         with col_img:
-            st.image(IMAGE_PATH, caption="Khách sạn", use_column_width=True)
+            st.image(IMAGE_PATH, caption="Khách sạn", use_container_width=True)
         with col_info:
             st.subheader("Chào mừng đến với Hệ thống Quản lý Khách sạn")
             st.caption("Theo dõi tình trạng phòng, lượt lưu trú và dịch vụ thời gian thực.")
