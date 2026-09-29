@@ -64,17 +64,9 @@ def init_db():
     ''')
     
     # TỰ ĐỘNG TƯƠNG THÍCH DATABASE CŨ (MIGRATION)
-    # Kiểm tra và thêm các cột còn thiếu nếu DB được tạo từ code phiên bản cũ
     c.execute("PRAGMA table_info(bookings)")
     columns = [column[1] for column in c.fetchall()]
-    
-    missing_columns = {
-        'phone_number': 'TEXT',
-        'email': 'TEXT',
-        'nationality': 'TEXT',
-        'notes': 'TEXT'
-    }
-    
+    missing_columns = {'phone_number': 'TEXT', 'email': 'TEXT', 'nationality': 'TEXT', 'notes': 'TEXT'}
     for col_name, col_type in missing_columns.items():
         if col_name not in columns:
             c.execute(f"ALTER TABLE bookings ADD COLUMN {col_name} {col_type}")
@@ -98,9 +90,9 @@ def init_db():
     if c.fetchone()[0] == 0:
         rooms_data = [
             ('101', 'Đơn Standard', 500000, 'Trống'),
-            ('102', 'Đơn Standard', 500000, 'Đã đặt'),
+            ('102', 'Đơn Standard', 500000, 'Trống'),
             ('201', 'Đôi Deluxe', 800000, 'Trống'),
-            ('202', 'Đôi Deluxe', 800000, 'Đã đặt'),
+            ('202', 'Đôi Deluxe', 800000, 'Trống'),
             ('301', 'VIP Suite', 1500000, 'Trống'),
         ]
         c.executemany("INSERT INTO rooms VALUES (?, ?, ?, ?)", rooms_data)
@@ -134,6 +126,14 @@ def init_db():
         ]
         c.executemany("INSERT INTO services (booking_id, service_name, price, quantity, total) VALUES (?, ?, ?, ?, ?)", services_data)
         conn.commit()
+
+    # LOGIC TỰ ĐỘNG ĐỒNG BỘ TRẠNG THÁI PHÒNG DỰA TRÊN BẢNG BOOKINGS DANG Ở
+    c.execute("UPDATE rooms SET status = 'Trống'")
+    c.execute("SELECT DISTINCT room_number FROM bookings WHERE status = 'Đang ở'")
+    occupied_rooms = [r[0] for r in c.fetchall()]
+    for r_num in occupied_rooms:
+        c.execute("UPDATE rooms SET status = 'Đã đặt' WHERE room_number = ?", (r_num,))
+    conn.commit()
 
 init_db()
 conn = get_db()
@@ -186,7 +186,7 @@ if menu == "Sơ đồ phòng":
     
     col1, col2, col3 = st.columns(3)
     col1.metric("Tổng số phòng", total_r)
-    col2.metric("Phòng đang có khách", occ_r)
+    col2.metric("Phòng đang có khách (Đã đặt)", occ_r)
     col3.metric("Phòng trống", emp_r)
     
     st.markdown("---")
@@ -200,6 +200,7 @@ if menu == "Sơ đồ phòng":
             st.write(f"**Giá:** {row['price_per_night']:,} VNĐ/đêm")
             st.write(f"**Trạng thái:** {row['status']}")
             
+            # Hiển thị thông tin khách nếu phòng đang ở / đã đặt
             if row['status'] == 'Đã đặt':
                 b_info = pd.read_sql_query(
                     "SELECT customer_name, phone_number, check_in_date FROM bookings WHERE room_number = ? AND status = 'Đang ở'",
@@ -209,6 +210,16 @@ if menu == "Sơ đồ phòng":
                     st.caption(f"👤 Khách: {b_info.iloc[0]['customer_name']}")
                     st.caption(f"📞 SĐT: {b_info.iloc[0]['phone_number']}")
                     st.caption(f"📅 Nhận: {b_info.iloc[0]['check_in_date']}")
+            
+            # Nút hỗ trợ thay đổi nhanh trạng thái phòng (Thủ công)
+            new_status = "Trống" if row['status'] == 'Đã đặt' else "Đã đặt"
+            btn_label = f"Chuyển sang {new_status}"
+            if st.button(btn_label, key=f"btn_toggle_{row['room_number']}"):
+                cur = conn.cursor()
+                cur.execute("UPDATE rooms SET status = ? WHERE room_number = ?", (new_status, row['room_number']))
+                conn.commit()
+                st.rerun()
+
             st.markdown("---")
 
 # ==========================================
